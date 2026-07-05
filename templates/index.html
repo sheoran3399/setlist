@@ -214,6 +214,19 @@
       color: var(--text-faint);
       margin-top: 0.1rem;
     }
+    .tags {
+      display: flex;
+      gap: 0.4rem;
+      margin-top: 0.25rem;
+    }
+    .tag {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.1rem 0.55rem;
+    }
 
     .track.unmatched { opacity: 0.55; }
     .track.unmatched .track-title { font-weight: 400; font-style: italic; }
@@ -258,9 +271,7 @@
     <p class="intro">
       Paste a SoundCloud link — a single track or a full DJ set — and this tool identifies
       every song in it using audio fingerprinting, then hands back the artist, title, and a
-      direct Spotify link for each one. Long mixes (10+ minutes) are automatically sampled
-      at multiple points across the recording, since a DJ set is dozens of songs blended
-      together, not one.
+      direct Spotify link for each one.
     </p>
   </header>
 
@@ -300,6 +311,12 @@
                 <div class="track-info">
                   {% if r.artist and r.title %}
                     <div class="track-title">{{ r.artist }} — {{ r.title }}</div>
+                    {% if r.genre or r.mood %}
+                      <div class="tags">
+                        {% if r.genre %}<span class="tag">#{{ r.genre|replace(" ", "") }}</span>{% endif %}
+                        {% if r.mood %}<span class="tag">#{{ r.mood|replace(" ", "") }}</span>{% endif %}
+                      </div>
+                    {% endif %}
                   {% else %}
                     <div class="track-title">{{ r.label }}</div>
                     <div class="track-label">no match</div>

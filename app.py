@@ -1,20 +1,34 @@
 from __future__ import annotations
 
+import os
+
 from flask import Flask, render_template, request
 
+import claude_tagger
 from config import load_config
 from identify import identify_track
 from soundcloud_source import list_playlist_tracks
 
 app = Flask(__name__)
 
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+
+
+def _tag_genre_mood(artist: str | None, title: str | None) -> tuple[str | None, str | None]:
+    if not (ANTHROPIC_API_KEY and artist and title):
+        return None, None
+    result = claude_tagger.classify(ANTHROPIC_API_KEY, artist, title)
+    if not result:
+        return None, None
+    return result.genre, result.mood
+
 
 def extract_track_names(soundcloud_url: str) -> list[dict]:
     """Identify every song referenced by a SoundCloud URL, no Spotify involved.
 
     Returns one dict per identified (or unidentified) item: {label, artist,
-    title, matched}. DJ sets expand into multiple items (one per sample
-    point); ordinary tracks yield exactly one.
+    title, matched, spotify_url, genre, mood}. DJ sets expand into multiple
+    items (one per sample point); ordinary tracks yield exactly one.
     """
     config = load_config()
     sc_tracks = list_playlist_tracks(soundcloud_url)
@@ -28,6 +42,7 @@ def extract_track_names(soundcloud_url: str) -> list[dict]:
                     if recognition.spotify_id
                     else None
                 )
+                genre, mood = _tag_genre_mood(recognition.artist, recognition.title)
                 results.append(
                     {
                         "label": label,
@@ -35,16 +50,22 @@ def extract_track_names(soundcloud_url: str) -> list[dict]:
                         "title": recognition.title,
                         "matched": True,
                         "spotify_url": spotify_url,
+                        "genre": genre,
+                        "mood": mood,
                     }
                 )
             elif fallback_title:
+                artist = fallback_artist or "(unknown artist)"
+                genre, mood = _tag_genre_mood(artist, fallback_title)
                 results.append(
                     {
                         "label": label,
-                        "artist": fallback_artist or "(unknown artist)",
+                        "artist": artist,
                         "title": fallback_title,
                         "matched": False,
                         "spotify_url": None,
+                        "genre": genre,
+                        "mood": mood,
                     }
                 )
             else:
@@ -55,6 +76,8 @@ def extract_track_names(soundcloud_url: str) -> list[dict]:
                         "title": None,
                         "matched": False,
                         "spotify_url": None,
+                        "genre": None,
+                        "mood": None,
                     }
                 )
     return results
