@@ -39,8 +39,10 @@ def load_config(path: str = "config.yaml") -> Config:
 
     return Config(
         audd_api_token=require_env("AUDD_API_TOKEN"),
-        spotify_client_id=require_env("SPOTIFY_CLIENT_ID"),
-        spotify_client_secret=require_env("SPOTIFY_CLIENT_SECRET"),
+        # Optional: only main.py's Spotify playlist-building step needs these.
+        # The identification-only web UI never touches Spotify's API.
+        spotify_client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
+        spotify_client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", ""),
         spotify_redirect_uri=os.environ.get(
             "SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8080/callback"
         ),

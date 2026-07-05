@@ -1,5 +1,7 @@
 # Setlist
 
+**Live: https://setlist-production-a054.up.railway.app**
+
 Turn a SoundCloud track — or a full DJ set — into a list of identified songs with direct Spotify links, and optionally build them straight into a Spotify playlist.
 
 SoundCloud uploads (especially DJ sets and mixes) often have messy or missing metadata. This tool identifies the actual songs by audio fingerprinting via [AudD](https://audd.io), not by trusting the upload title. Long recordings (10+ minutes) are treated as DJ sets: instead of one recognition attempt, the audio is sampled at multiple points across the mix and each identified song is returned separately.
@@ -68,6 +70,20 @@ Open http://127.0.0.1:5050 (not 5000 — macOS's AirPlay Receiver claims that po
 ```
 
 Omit the URL to use `soundcloud_playlist_url` from `config.yaml` instead. The first run opens a browser for Spotify login/consent.
+
+## Deployment
+
+The web UI is deployed on [Railway](https://railway.app) via the included `Dockerfile` (a plain Python buildpack won't work — `ffmpeg` has to be installed at the OS level). Only `AUDD_API_TOKEN` is set as a host env var; the deployed instance never touches Spotify credentials since the web UI doesn't call the Spotify API at all.
+
+To redeploy from scratch:
+
+```bash
+railway login
+railway init
+railway variables --set "AUDD_API_TOKEN=..."
+railway up
+railway domain
+```
 
 ## Known limitation: Spotify Premium
 
