@@ -1,0 +1,26 @@
+# Non-secret run settings. Secrets (API keys/tokens) live in .env instead.
+
+# Default SoundCloud playlist to convert if none is given on the command line.
+soundcloud_playlist_url: ""
+
+# All recognized tracks are added to this single Spotify playlist.
+# Created automatically on first run if it doesn't exist yet.
+target_playlist_name: "SoundCloud Import"
+target_playlist_public: false
+target_playlist_description: "Auto-converted from SoundCloud via AudD."
+
+# Any track at or above this length is treated as a DJ set/mix rather than a
+# single song: instead of one recognition attempt, we sample multiple points
+# across it and add every distinct song we identify.
+dj_set_threshold_minutes: 10
+
+# How far apart (in seconds) to sample points across a DJ set. Tighter
+# spacing catches shorter back-to-back songs but costs more AudD requests.
+dj_set_sample_interval_seconds: 240
+
+# Seconds of audio sent to AudD per sample point.
+dj_set_sample_clip_seconds: 12
+
+# Skip this many seconds at the very start/end of a set (likely intro/outro
+# talk or a fade, not a clean song to identify).
+dj_set_edge_margin_seconds: 60

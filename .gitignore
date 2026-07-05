@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+.spotify_token_cache
+.gstack/
+.venv/
+*.egg-info/
+.DS_Store

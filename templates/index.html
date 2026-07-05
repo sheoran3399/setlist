@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setlist — SoundCloud DJ Sets, Track by Track</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎧</text></svg>">
+  <style>
+    :root {
+      --bg: #0d0d10;
+      --bg-panel: #17171c;
+      --bg-panel-2: #1e1e25;
+      --border: #2a2a33;
+      --text: #f2f2f5;
+      --text-dim: #9797a3;
+      --text-faint: #5c5c68;
+      --soundcloud: #ff5500;
+      --spotify: #1db954;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255, 85, 0, 0.18), transparent),
+        radial-gradient(ellipse 900px 500px at 85% 0%, rgba(29, 185, 84, 0.14), transparent),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    header {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 3.5rem 1.5rem 1rem;
+      text-align: center;
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      margin-bottom: 1.4rem;
+    }
+    .logo-row .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--soundcloud);
+      box-shadow: 0 0 12px 2px rgba(255, 85, 0, 0.6);
+    }
+    .logo-row span.wordmark {
+      font-size: 0.85rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      line-height: 1.15;
+      margin: 0 0 1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    h1 .accent-sc { color: var(--soundcloud); }
+    h1 .accent-sp { color: var(--spotify); }
+
+    .intro {
+      color: var(--text-dim);
+      font-size: 1.05rem;
+      line-height: 1.6;
+      max-width: 560px;
+      margin: 0 auto 0.5rem;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 1.5rem 1.5rem 4rem;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: 0 20px 50px -25px rgba(0, 0, 0, 0.6);
+    }
+
+    form { display: flex; gap: 0.6rem; }
+
+    input[type=url] {
+      flex: 1;
+      padding: 0.85rem 1rem;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-panel-2);
+      color: var(--text);
+    }
+    input[type=url]::placeholder { color: var(--text-faint); }
+    input[type=url]:focus {
+      outline: none;
+      border-color: var(--soundcloud);
+    }
+
+    button {
+      padding: 0.85rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background: var(--soundcloud);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      white-space: nowrap;
+    }
+    button:hover { background: #e64d00; }
+
+    .hint {
+      margin: 0.9rem 0 0;
+      font-size: 0.85rem;
+      color: var(--text-faint);
+    }
+
+    .loading {
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      margin-top: 1rem;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+    .spinner {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      border-top-color: var(--soundcloud);
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error {
+      background: rgba(168, 50, 50, 0.15);
+      border: 1px solid rgba(168, 50, 50, 0.4);
+      color: #ff8080;
+      padding: 0.9rem 1.1rem;
+      border-radius: 10px;
+      margin-top: 1.5rem;
+      font-size: 0.92rem;
+    }
+
+    .results { margin-top: 2rem; }
+    .results-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .results-header h2 {
+      font-size: 1.05rem;
+      margin: 0;
+      font-weight: 600;
+    }
+    .results-count {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+    .results-count strong { color: var(--spotify); }
+
+    ol.track-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      counter-reset: track;
+    }
+
+    .track {
+      counter-increment: track;
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      background: var(--bg-panel-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+    }
+    .track::before {
+      content: counter(track);
+      flex-shrink: 0;
+      width: 1.6rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      font-variant-numeric: tabular-nums;
+    }
+    .track-info { flex: 1; min-width: 0; }
+    .track-title {
+      font-weight: 600;
+      font-size: 0.97rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .track-label {
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      margin-top: 0.1rem;
+    }
+
+    .track.unmatched { opacity: 0.55; }
+    .track.unmatched .track-title { font-weight: 400; font-style: italic; }
+
+    .spotify-link {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #0d0d10;
+      background: var(--spotify);
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      text-decoration: none;
+    }
+    .spotify-link:hover { background: #1ed760; }
+    .no-link {
+      flex-shrink: 0;
+      font-size: 0.78rem;
+      color: var(--text-faint);
+      padding: 0.4rem 0.2rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1.5rem 3rem;
+      color: var(--text-faint);
+      font-size: 0.82rem;
+    }
+    footer a { color: var(--text-dim); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo-row">
+      <span class="dot"></span>
+      <span class="wordmark">Setlist</span>
+    </div>
+    <h1><span class="accent-sc">SoundCloud</span> sets, turned into <span class="accent-sp">Spotify</span> tracks</h1>
+    <p class="intro">
+      Paste a SoundCloud link — a single track or a full DJ set — and this tool identifies
+      every song in it using audio fingerprinting, then hands back the artist, title, and a
+      direct Spotify link for each one. Long mixes (10+ minutes) are automatically sampled
+      at multiple points across the recording, since a DJ set is dozens of songs blended
+      together, not one.
+    </p>
+  </header>
+
+  <main>
+    <div class="panel">
+      <form method="post" id="extract-form">
+        <input
+          type="url"
+          name="soundcloud_url"
+          placeholder="https://soundcloud.com/..."
+          value="{{ soundcloud_url or '' }}"
+          required
+        >
+        <button type="submit">Identify tracks</button>
+      </form>
+      <p class="hint">Works with single tracks or long DJ sets/mixes.</p>
+      <div class="loading" id="loading-msg">
+        <span class="spinner"></span>
+        <span>Downloading audio and identifying tracks — this can take a minute or two for longer sets...</span>
+      </div>
+
+      {% if error %}
+        <div class="error">{{ error }}</div>
+      {% endif %}
+
+      {% if results is defined %}
+        <div class="results">
+          <div class="results-header">
+            <h2>Identified tracks</h2>
+            <span class="results-count">
+              <strong>{{ results|selectattr("matched")|list|length }}</strong> of {{ results|length }} identified
+            </span>
+          </div>
+          <ol class="track-list">
+            {% for r in results %}
+              <li class="track {{ 'unmatched' if not r.matched }}">
+                <div class="track-info">
+                  {% if r.artist and r.title %}
+                    <div class="track-title">{{ r.artist }} — {{ r.title }}</div>
+                  {% else %}
+                    <div class="track-title">{{ r.label }}</div>
+                    <div class="track-label">no match</div>
+                  {% endif %}
+                </div>
+                {% if r.spotify_url %}
+                  <a href="{{ r.spotify_url }}" target="_blank" rel="noopener" class="spotify-link">Spotify ↗</a>
+                {% elif r.matched %}
+                  <span class="no-link">no Spotify link yet</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        </div>
+      {% endif %}
+    </div>
+  </main>
+
+  <footer>
+    Identification powered by <a href="https://audd.io" target="_blank" rel="noopener">AudD</a>.
+  </footer>
+
+  <script>
+    document.getElementById("extract-form").addEventListener("submit", function () {
+      document.getElementById("loading-msg").style.display = "flex";
+    });
+  </script>
+</body>
+</html>
