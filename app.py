@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from urllib.parse import quote
 
 from flask import Flask, render_template, request
 
@@ -23,47 +24,41 @@ def _tag_genre_mood(artist: str | None, title: str | None) -> tuple[str | None, 
     return result.genre, result.mood
 
 
+def _spotify_search_url(artist: str | None, title: str | None) -> str | None:
+    """A Spotify search deep-link, not a confirmed track link.
+
+    Shazam (unlike AudD) never resolves a specific Spotify track ID for us,
+    and resolving one ourselves would require a live Spotify API search --
+    which needs Spotify credentials the web UI is deliberately built to not
+    require. A search link needs no API call or auth at all.
+    """
+    if not (artist and title):
+        return None
+    return f"https://open.spotify.com/search/{quote(f'{artist} {title}')}"
+
+
 def extract_track_names(soundcloud_url: str) -> list[dict]:
     """Identify every song referenced by a SoundCloud URL, no Spotify involved.
 
     Returns one dict per identified (or unidentified) item: {label, artist,
     title, matched, spotify_url, genre, mood}. DJ sets expand into multiple
-    items (one per sample point); ordinary tracks yield exactly one.
+    items (one per confirmed song); ordinary tracks yield exactly one.
     """
     config = load_config()
     sc_tracks = list_playlist_tracks(soundcloud_url)
 
     results = []
     for sc_track in sc_tracks:
-        for label, recognition, fallback_artist, fallback_title in identify_track(sc_track, config):
-            if recognition:
-                spotify_url = (
-                    f"https://open.spotify.com/track/{recognition.spotify_id}"
-                    if recognition.spotify_id
-                    else None
-                )
-                genre, mood = _tag_genre_mood(recognition.artist, recognition.title)
-                results.append(
-                    {
-                        "label": label,
-                        "artist": recognition.artist,
-                        "title": recognition.title,
-                        "matched": True,
-                        "spotify_url": spotify_url,
-                        "genre": genre,
-                        "mood": mood,
-                    }
-                )
-            elif fallback_title:
-                artist = fallback_artist or "(unknown artist)"
-                genre, mood = _tag_genre_mood(artist, fallback_title)
+        for label, _recognition, artist, title in identify_track(sc_track, config):
+            if title:
+                genre, mood = _tag_genre_mood(artist, title)
                 results.append(
                     {
                         "label": label,
                         "artist": artist,
-                        "title": fallback_title,
-                        "matched": False,
-                        "spotify_url": None,
+                        "title": title,
+                        "matched": True,
+                        "spotify_url": _spotify_search_url(artist, title),
                         "genre": genre,
                         "mood": mood,
                     }

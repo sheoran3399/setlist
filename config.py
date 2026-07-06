@@ -12,7 +12,6 @@ load_dotenv()
 
 @dataclass
 class Config:
-    audd_api_token: str
     spotify_client_id: str
     spotify_client_secret: str
     spotify_redirect_uri: str
@@ -21,25 +20,17 @@ class Config:
     target_playlist_public: bool
     target_playlist_description: str
     dj_set_threshold_s: float
-    dj_set_sample_interval_s: float
-    dj_set_sample_clip_seconds: int
     dj_set_edge_margin_s: float
-    dj_set_retry_offset_s: float
+    dj_set_sample_interval_s: float
+    shazam_segment_seconds: int
+    shazam_confirm_offset_s: float
+    shazam_concurrency: int
 
 
 def load_config(path: str = "config.yaml") -> Config:
     raw = yaml.safe_load(Path(path).read_text()) or {}
 
-    def require_env(name: str) -> str:
-        value = os.environ.get(name, "").strip()
-        if not value:
-            raise RuntimeError(
-                f"Missing {name}. Set it in your .env file (see .env.example)."
-            )
-        return value
-
     return Config(
-        audd_api_token=require_env("AUDD_API_TOKEN"),
         # Optional: only main.py's Spotify playlist-building step needs these.
         # The identification-only web UI never touches Spotify's API.
         spotify_client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
@@ -52,8 +43,9 @@ def load_config(path: str = "config.yaml") -> Config:
         target_playlist_public=bool(raw.get("target_playlist_public", False)),
         target_playlist_description=raw.get("target_playlist_description", ""),
         dj_set_threshold_s=float(raw.get("dj_set_threshold_minutes", 10)) * 60,
-        dj_set_sample_interval_s=float(raw.get("dj_set_sample_interval_seconds", 240)),
-        dj_set_sample_clip_seconds=int(raw.get("dj_set_sample_clip_seconds", 18)),
         dj_set_edge_margin_s=float(raw.get("dj_set_edge_margin_seconds", 60)),
-        dj_set_retry_offset_s=float(raw.get("dj_set_retry_offset_seconds", 8)),
+        dj_set_sample_interval_s=float(raw.get("dj_set_sample_interval_seconds", 240)),
+        shazam_segment_seconds=int(raw.get("shazam_segment_seconds", 15)),
+        shazam_confirm_offset_s=float(raw.get("shazam_confirm_offset_seconds", 7)),
+        shazam_concurrency=int(raw.get("shazam_concurrency", 6)),
     )

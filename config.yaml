@@ -7,26 +7,30 @@ soundcloud_playlist_url: ""
 # Created automatically on first run if it doesn't exist yet.
 target_playlist_name: "SoundCloud Import"
 target_playlist_public: false
-target_playlist_description: "Auto-converted from SoundCloud via AudD."
+target_playlist_description: "Auto-converted from SoundCloud via Shazam."
 
 # Any track at or above this length is treated as a DJ set/mix rather than a
-# single song: instead of one recognition attempt, we sample multiple points
-# across it and add every distinct song we identify.
+# single song: instead of one recognition attempt, we sample multiple spaced
+# points across it and add every distinct song we identify.
 dj_set_threshold_minutes: 10
-
-# How far apart (in seconds) to sample points across a DJ set. Tighter
-# spacing catches shorter back-to-back songs but costs more AudD requests.
-dj_set_sample_interval_seconds: 240
-
-# Seconds of audio sent to AudD per sample point. AudD's own docs recommend
-# up to ~20s for best fingerprinting results; 12s was too short.
-dj_set_sample_clip_seconds: 18
 
 # Skip this many seconds at the very start/end of a set (likely intro/outro
 # talk or a fade, not a clean song to identify).
 dj_set_edge_margin_seconds: 60
 
-# If a sample point gets no match, retry once this many seconds later before
-# giving up on it — a miss is often just landing mid-transition, not an
-# actually unrecognizable song.
-dj_set_retry_offset_seconds: 8
+# How far apart (in seconds) to sample points across a DJ set. Shazam's
+# unofficial API rate-limits hard under sustained volume, so unlike a paid
+# per-request service we keep this sparse rather than scanning everything.
+dj_set_sample_interval_seconds: 240
+
+# Length of each clip sent to Shazam per sample.
+shazam_segment_seconds: 15
+
+# Seconds between the two clips taken at each sample point. A match is only
+# accepted if both agree on the same song — catches single-clip false
+# positives without needing to scan the whole mix.
+shazam_confirm_offset_seconds: 7
+
+# How many clips to recognize concurrently. Higher is faster but hits
+# Shazam's (unofficial, free) API harder.
+shazam_concurrency: 6

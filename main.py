@@ -5,7 +5,6 @@ import sys
 
 from config import load_config
 from identify import identify_dj_set, identify_from_tracklist, identify_single_track, parse_tracklist
-from recognizer import Recognition
 from soundcloud_source import list_playlist_tracks
 from spotify_client import (
     add_tracks,
@@ -17,34 +16,18 @@ from spotify_client import (
 )
 
 
-def resolve_uri(
-    sp, recognition: Recognition | None, fallback_artist: str | None, fallback_title: str | None
-) -> tuple[str | None, str | None]:
-    """Turn a recognition (or raw metadata fallback) into a Spotify track URI.
-
-    Prefers AudD's own artist/title over raw SoundCloud metadata whenever
-    AudD identified something at all, even without a direct Spotify ID —
-    AudD's parse is far cleaner than a SoundCloud upload title.
-    """
-    if recognition and recognition.spotify_id:
-        return f"spotify:track:{recognition.spotify_id}", "audd"
-
-    search_artist = recognition.artist if recognition else fallback_artist
-    search_title = recognition.title if recognition else fallback_title
-    if not search_title:
-        return None, None
-
-    candidates = search_candidates(sp, search_artist or "", search_title)
-    match = pick_best_match(candidates, search_title, search_artist or "")
-    if match:
-        return match, "fallback"
-    return None, None
+def resolve_uri(sp, artist: str | None, title: str | None) -> str | None:
+    """Search Spotify for the identified artist/title and return the best-match URI."""
+    if not title:
+        return None
+    candidates = search_candidates(sp, artist or "", title)
+    return pick_best_match(candidates, title, artist or "")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Convert a SoundCloud playlist into a single Spotify playlist, "
-        "identifying tracks via AudD."
+        "identifying tracks via Shazam."
     )
     parser.add_argument(
         "playlist_url",
@@ -79,8 +62,6 @@ def main() -> int:
     print(f"Target playlist '{config.target_playlist_name}' already has {len(existing_uris)} tracks.")
 
     resolved_uris: list[str] = []
-    audd_matches = 0
-    fallback_matches = 0
     unmatched: list[str] = []
 
     for i, track in enumerate(tracks, start=1):
@@ -93,21 +74,16 @@ def main() -> int:
             candidates = identify_from_tracklist(track, tracklist)
         elif is_dj_set:
             minutes = (track.duration_s or 0) / 60
-            print(f"    DJ set detected ({minutes:.1f} min) — sampling multiple points")
+            print(f"    DJ set detected ({minutes:.1f} min) — scanning with Shazam")
             candidates = identify_dj_set(track, config)
         else:
             candidates = identify_single_track(track, config)
 
-        for label, recognition, fallback_artist, fallback_title in candidates:
-            uri, method = resolve_uri(sp, recognition, fallback_artist, fallback_title)
-
-            if method == "audd":
-                audd_matches += 1
-            elif method == "fallback":
-                fallback_matches += 1
+        for label, _recognition, artist, title in candidates:
+            uri = resolve_uri(sp, artist, title)
 
             if uri:
-                print(f"    {label} -> matched ({method})")
+                print(f"    {label} -> matched: {artist} - {title}")
                 if uri not in existing_uris and uri not in resolved_uris:
                     resolved_uris.append(uri)
             else:
@@ -119,10 +95,8 @@ def main() -> int:
         add_tracks(sp, playlist_id, resolved_uris)
 
     print("\nDone.")
-    print(f"  Identified via AudD:      {audd_matches}")
-    print(f"  Identified via fallback:  {fallback_matches}")
-    print(f"  Added to playlist:        {len(resolved_uris)}")
-    print(f"  Unmatched:                {len(unmatched)}")
+    print(f"  Added to playlist: {len(resolved_uris)}")
+    print(f"  Unmatched:         {len(unmatched)}")
     for title in unmatched:
         print(f"    - {title}")
 

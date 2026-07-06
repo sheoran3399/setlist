@@ -323,9 +323,7 @@
                   {% endif %}
                 </div>
                 {% if r.spotify_url %}
-                  <a href="{{ r.spotify_url }}" target="_blank" rel="noopener" class="spotify-link">Spotify ↗</a>
-                {% elif r.matched %}
-                  <span class="no-link">no Spotify link yet</span>
+                  <a href="{{ r.spotify_url }}" target="_blank" rel="noopener" class="spotify-link">Search Spotify ↗</a>
                 {% endif %}
               </li>
             {% endfor %}
@@ -336,7 +334,7 @@
   </main>
 
   <footer>
-    Identification powered by <a href="https://audd.io" target="_blank" rel="noopener">AudD</a>.
+    Identification powered by <a href="https://www.shazam.com" target="_blank" rel="noopener">Shazam</a>.
   </footer>
 
   <script>

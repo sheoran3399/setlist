@@ -3,12 +3,13 @@ from __future__ import annotations
 import re
 from typing import Iterator
 
+import shazam_recognizer
 from config import Config
-from recognizer import Recognition, recognize
+from recognizer import Recognition
 from soundcloud_source import SoundCloudTrack, extract_clip, full_audio_file, snippet_file
 
-# label, recognition (None if unidentified), fallback artist/title guessed
-# from raw SoundCloud metadata (only meaningful when recognition is None).
+# label, recognition (always None now — kept for interface compatibility with
+# resolve_uri/app.py), fallback artist/title from whatever identified the song.
 Candidate = tuple[str, "Recognition | None", "str | None", "str | None"]
 
 # Matches lines like "00:00     Artist - Title" or "01:00:21  Artist - Title",
@@ -31,11 +32,10 @@ def parse_tracklist(description: str | None) -> list[tuple[float, str, str]]:
     """Parse a "MM:SS Artist - Title" tracklist out of a SoundCloud description.
 
     Many DJs list their exact track selection with timestamps in the upload
-    description. When present, this is free and 100% accurate — unlike audio
-    fingerprinting, which has a real accuracy ceiling on mixed/electronic
-    content (no recognition service exceeds ~75% even on clean house/techno
-    tracks, let alone live-mixed ones). Requires at least 3 matched lines so
-    a description that just happens to mention a time once doesn't misfire.
+    description. When present, this is free and 100% accurate — a bonus for
+    the uploads that have it, not a general fix for the ones that don't.
+    Requires at least 3 matched lines so a description that just happens to
+    mention a time once doesn't misfire.
     """
     if not description:
         return []
@@ -54,23 +54,49 @@ def parse_tracklist(description: str | None) -> list[tuple[float, str, str]]:
 
 def identify_single_track(track: SoundCloudTrack, config: Config) -> Iterator[Candidate]:
     with snippet_file(track) as clip_path:
-        recognition = recognize(config.audd_api_token, clip_path)
+        match = shazam_recognizer.recognize(clip_path)
+    if match:
+        yield track.title, None, match.artist, match.title
+        return
     guess_title, guess_artist = split_title_artist(track.title, track.uploader)
-    yield track.title, recognition, guess_artist, guess_title
+    yield track.title, None, guess_artist, guess_title
+
+
+def _agree(matches: list["shazam_recognizer.ShazamMatch | None"]) -> tuple[str, str] | None:
+    """Return (artist, title) only if at least two of the given matches agree.
+
+    A single clip matching a song isn't trusted on its own — Shazam (like any
+    fingerprinting service) occasionally returns a confident-looking wrong
+    match. Requiring two independent nearby clips to agree filters that out:
+    a real song shows up consistently, a spurious match doesn't repeat.
+    """
+    valid = [m for m in matches if m]
+    for i, a in enumerate(valid):
+        key_a = (a.artist.strip().lower(), a.title.strip().lower())
+        for b in valid[i + 1 :]:
+            key_b = (b.artist.strip().lower(), b.title.strip().lower())
+            if key_a == key_b:
+                return a.artist, a.title
+    return None
 
 
 def identify_dj_set(track: SoundCloudTrack, config: Config) -> Iterator[Candidate]:
-    """Sample multiple points across a long mix and identify each song separately.
+    """Sample spaced-out points across a long mix, confirming each with Shazam.
 
-    A DJ set is one continuous recording, not one song, so a single AudD
-    call only ever identifies whatever's playing at one instant. We sample
-    every dj_set_sample_interval_s across the set instead; each sample either
-    lands mid-song (identifiable) or during a blend/transition (often no
-    match, which we report as a gap rather than guessing).
+    A DJ set is one continuous recording, not one song, so a single call only
+    ever identifies whatever's playing at one instant. Shazam's (unofficial,
+    free) API rate-limits hard under sustained volume, so unlike a paid
+    per-request service we can't afford to scan the whole mix densely —
+    instead we keep the same sparse interval as before, but take two nearby
+    clips per point and only accept a match when both agree (see _agree),
+    which catches single-clip false positives without needing to scan
+    everything.
     """
     duration = track.duration_s or 0
     start = config.dj_set_edge_margin_s
     end = duration - config.dj_set_edge_margin_s
+    seg = config.shazam_segment_seconds
+    offset = config.shazam_confirm_offset_s
 
     sample_points = []
     t = start
@@ -81,21 +107,26 @@ def identify_dj_set(track: SoundCloudTrack, config: Config) -> Iterator[Candidat
         sample_points = [duration / 2]
 
     with full_audio_file(track) as full_path:
+        clip_paths: list = []
+        point_slices: list[tuple[float, int, int]] = []
         for t in sample_points:
-            clip_path = extract_clip(full_path, t, config.dj_set_sample_clip_seconds)
-            recognition = recognize(config.audd_api_token, clip_path)
+            idx_start = len(clip_paths)
+            for sub_t in (t, t + offset):
+                if sub_t + seg <= end:
+                    clip_paths.append(extract_clip(full_path, sub_t, seg))
+            point_slices.append((t, idx_start, len(clip_paths)))
 
-            # A miss is often just landing mid-transition, not an unrecognizable
-            # song — nudge forward once and retry before giving up on this point.
-            if not recognition:
-                retry_t = t + config.dj_set_retry_offset_s
-                if retry_t + config.dj_set_sample_clip_seconds < end:
-                    retry_clip = extract_clip(full_path, retry_t, config.dj_set_sample_clip_seconds)
-                    recognition = recognize(config.audd_api_token, retry_clip)
+        matches = shazam_recognizer.recognize_many(clip_paths, concurrency=config.shazam_concurrency)
 
-            minutes, seconds = divmod(int(t), 60)
-            label = f"{track.title} @ {minutes}:{seconds:02d}"
-            yield label, recognition, None, None
+    for t, idx_start, idx_end in point_slices:
+        confirmed = _agree(matches[idx_start:idx_end])
+        minutes, seconds = divmod(int(t), 60)
+        label = f"{track.title} @ {minutes}:{seconds:02d}"
+        if confirmed:
+            artist, title = confirmed
+            yield label, None, artist, title
+        else:
+            yield label, None, None, None
 
 
 def identify_from_tracklist(
