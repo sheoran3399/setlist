@@ -19,6 +19,7 @@ class SoundCloudTrack:
     title: str
     uploader: str | None
     duration_s: float | None = None
+    description: str | None = None
 
 
 def _flat_extract(url: str) -> dict:
@@ -58,6 +59,7 @@ def list_playlist_tracks(playlist_url: str) -> list[SoundCloudTrack]:
                 title=info.get("title") or "",
                 uploader=info.get("uploader"),
                 duration_s=info.get("duration"),
+                description=info.get("description"),
             )
         ]
 
@@ -71,6 +73,7 @@ def list_playlist_tracks(playlist_url: str) -> list[SoundCloudTrack]:
                 title=entry.get("title") or "",
                 uploader=entry.get("uploader"),
                 duration_s=entry.get("duration"),
+                description=entry.get("description"),
             )
         )
     return tracks

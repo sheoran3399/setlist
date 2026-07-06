@@ -4,7 +4,7 @@ import argparse
 import sys
 
 from config import load_config
-from identify import identify_dj_set, identify_single_track
+from identify import identify_dj_set, identify_from_tracklist, identify_single_track, parse_tracklist
 from recognizer import Recognition
 from soundcloud_source import list_playlist_tracks
 from spotify_client import (
@@ -84,13 +84,19 @@ def main() -> int:
     unmatched: list[str] = []
 
     for i, track in enumerate(tracks, start=1):
-        is_dj_set = (track.duration_s or 0) >= config.dj_set_threshold_s
         print(f"[{i}/{len(tracks)}] {track.title}")
-        if is_dj_set:
+        tracklist = parse_tracklist(track.description)
+        is_dj_set = (track.duration_s or 0) >= config.dj_set_threshold_s
+
+        if tracklist:
+            print(f"    Tracklist found in description ({len(tracklist)} songs) — skipping audio recognition")
+            candidates = identify_from_tracklist(track, tracklist)
+        elif is_dj_set:
             minutes = (track.duration_s or 0) / 60
             print(f"    DJ set detected ({minutes:.1f} min) — sampling multiple points")
-
-        candidates = identify_dj_set(track, config) if is_dj_set else identify_single_track(track, config)
+            candidates = identify_dj_set(track, config)
+        else:
+            candidates = identify_single_track(track, config)
 
         for label, recognition, fallback_artist, fallback_title in candidates:
             uri, method = resolve_uri(sp, recognition, fallback_artist, fallback_title)

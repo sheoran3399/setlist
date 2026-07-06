@@ -24,6 +24,7 @@ class Config:
     dj_set_sample_interval_s: float
     dj_set_sample_clip_seconds: int
     dj_set_edge_margin_s: float
+    dj_set_retry_offset_s: float
 
 
 def load_config(path: str = "config.yaml") -> Config:
@@ -52,6 +53,7 @@ def load_config(path: str = "config.yaml") -> Config:
         target_playlist_description=raw.get("target_playlist_description", ""),
         dj_set_threshold_s=float(raw.get("dj_set_threshold_minutes", 10)) * 60,
         dj_set_sample_interval_s=float(raw.get("dj_set_sample_interval_seconds", 240)),
-        dj_set_sample_clip_seconds=int(raw.get("dj_set_sample_clip_seconds", 12)),
+        dj_set_sample_clip_seconds=int(raw.get("dj_set_sample_clip_seconds", 18)),
         dj_set_edge_margin_s=float(raw.get("dj_set_edge_margin_seconds", 60)),
+        dj_set_retry_offset_s=float(raw.get("dj_set_retry_offset_seconds", 8)),
     )

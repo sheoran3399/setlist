@@ -18,9 +18,15 @@ dj_set_threshold_minutes: 10
 # spacing catches shorter back-to-back songs but costs more AudD requests.
 dj_set_sample_interval_seconds: 240
 
-# Seconds of audio sent to AudD per sample point.
-dj_set_sample_clip_seconds: 12
+# Seconds of audio sent to AudD per sample point. AudD's own docs recommend
+# up to ~20s for best fingerprinting results; 12s was too short.
+dj_set_sample_clip_seconds: 18
 
 # Skip this many seconds at the very start/end of a set (likely intro/outro
 # talk or a fade, not a clean song to identify).
 dj_set_edge_margin_seconds: 60
+
+# If a sample point gets no match, retry once this many seconds later before
+# giving up on it — a miss is often just landing mid-transition, not an
+# actually unrecognizable song.
+dj_set_retry_offset_seconds: 8
