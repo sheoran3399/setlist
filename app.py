@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 import re
+import secrets
 from urllib.parse import quote
 
 import spotipy
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, redirect, render_template, request, session, url_for
 
 import claude_tagger
 from config import load_config
@@ -14,16 +15,30 @@ from soundcloud_source import list_playlist_tracks
 from spotify_client import add_tracks, get_existing_track_uris, get_oauth, get_or_create_playlist
 
 app = Flask(__name__)
+# Needed to sign the session cookie that gates /spotify/login and /callback
+# (see PLAYLIST_ADD_SECRET below). Falling back to a per-process random key
+# is fine here -- it just means everyone's session resets on a restart --
+# but set FLASK_SECRET_KEY so that doesn't happen on every redeploy.
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 # Playlist-adding writes to Spotify and is reachable on the public deployment
 # (no per-visitor login separates "you" from a random visitor with the link),
-# so it's gated behind a shared secret. Leave PLAYLIST_ADD_SECRET unset to
-# disable the gate entirely (e.g. for pure local use).
+# so /playlist, /spotify/login, and /callback are all gated behind a shared
+# secret -- not just /playlist's own form check. Without gating the other
+# two as well, anyone could hit /spotify/login directly, authenticate with
+# their *own* Spotify account, and silently overwrite the single shared
+# token cache file -- poisoning it so /playlist starts acting on the
+# attacker's account instead of the owner's. Leave PLAYLIST_ADD_SECRET unset
+# to disable the gate entirely (e.g. for pure local use).
 PLAYLIST_ADD_SECRET = os.environ.get("PLAYLIST_ADD_SECRET", "")
 
 _SPOTIFY_TRACK_RE = re.compile(r"(?:open\.spotify\.com/track/|spotify:track:)([A-Za-z0-9]+)")
+
+
+def _is_authorized() -> bool:
+    return not PLAYLIST_ADD_SECRET or session.get("playlist_authorized") is True
 
 
 def _spotify_app_redirect_uri() -> str:
@@ -137,24 +152,23 @@ def index():
     )
 
 
-@app.context_processor
-def _inject_secret_required():
-    return {"secret_required": bool(PLAYLIST_ADD_SECRET)}
-
-
 @app.route("/playlist", methods=["GET", "POST"])
 def playlist():
+    if not _is_authorized():
+        if request.method == "POST" and request.form.get("access_code") == PLAYLIST_ADD_SECRET:
+            session["playlist_authorized"] = True
+        else:
+            error = "Wrong access code." if request.method == "POST" else None
+            return render_template("playlist.html", needs_code=True, authenticated=False, error=error)
+
     oauth = _get_oauth()
     token_info = oauth.validate_token(oauth.cache_handler.get_cached_token())
 
     if not token_info:
         return render_template("playlist.html", authenticated=False)
 
-    if request.method != "POST":
+    if request.method != "POST" or "links" not in request.form:
         return render_template("playlist.html", authenticated=True)
-
-    if PLAYLIST_ADD_SECRET and request.form.get("access_code") != PLAYLIST_ADD_SECRET:
-        return render_template("playlist.html", authenticated=True, error="Wrong access code.")
 
     links_text = request.form.get("links", "")
     playlist_name = request.form.get("playlist_name", "").strip() or "SoundCloud Import"
@@ -173,8 +187,13 @@ def playlist():
         new_uris = [u for u in uris if u not in existing_uris]
         if new_uris:
             add_tracks(sp, playlist_id, new_uris)
-    except Exception as exc:  # noqa: BLE001 - surface any failure to the page
-        return render_template("playlist.html", authenticated=True, error=str(exc))
+    except Exception:
+        app.logger.exception("playlist add failed")
+        return render_template(
+            "playlist.html",
+            authenticated=True,
+            error="Could not add tracks to Spotify. Please try again.",
+        )
 
     return render_template(
         "playlist.html",
@@ -187,11 +206,20 @@ def playlist():
 
 @app.route("/spotify/login")
 def spotify_login():
-    return redirect(_get_oauth().get_authorize_url())
+    if not _is_authorized():
+        return "Forbidden", 403
+    state = secrets.token_urlsafe(24)
+    session["oauth_state"] = state
+    return redirect(_get_oauth().get_authorize_url(state=state))
 
 
 @app.route("/callback")
 def spotify_callback():
+    if not _is_authorized():
+        return "Forbidden", 403
+    expected_state = session.pop("oauth_state", None)
+    if not expected_state or request.args.get("state") != expected_state:
+        return "Invalid or missing OAuth state.", 400
     code = request.args.get("code")
     if code:
         _get_oauth().get_access_token(code, as_dict=True)

@@ -210,7 +210,18 @@
 
   <main>
     <div class="panel">
-      {% if not authenticated %}
+      {% if needs_code %}
+        {% if error %}
+          <div class="error">{{ error }}</div>
+        {% endif %}
+        <form method="post">
+          <div class="field">
+            <label for="access_code">Access code</label>
+            <input type="password" id="access_code" name="access_code" required autofocus>
+          </div>
+          <button type="submit">Continue</button>
+        </form>
+      {% elif not authenticated %}
         <div class="connect">
           <a href="/spotify/login">Connect Spotify</a>
           <p>You'll be asked to log in and approve access, then sent back here.</p>
@@ -240,12 +251,6 @@
               <label for="playlist_name">Playlist name</label>
               <input type="text" id="playlist_name" name="playlist_name" value="SoundCloud Import">
             </div>
-            {% if secret_required %}
-              <div class="field">
-                <label for="access_code">Access code</label>
-                <input type="password" id="access_code" name="access_code" required>
-              </div>
-            {% endif %}
             <button type="submit">Add to playlist</button>
           </form>
           <p class="hint">Creates the playlist if it doesn't exist yet, and skips any links already in it.</p>
