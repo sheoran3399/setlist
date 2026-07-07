@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setlist — Add to Spotify Playlist</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎧</text></svg>">
+  <style>
+    :root {
+      --bg: #0d0d10;
+      --bg-panel: #17171c;
+      --bg-panel-2: #1e1e25;
+      --border: #2a2a33;
+      --text: #f2f2f5;
+      --text-dim: #9797a3;
+      --text-faint: #5c5c68;
+      --soundcloud: #ff5500;
+      --spotify: #1db954;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255, 85, 0, 0.18), transparent),
+        radial-gradient(ellipse 900px 500px at 85% 0%, rgba(29, 185, 84, 0.14), transparent),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    header {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 3.5rem 1.5rem 1rem;
+      text-align: center;
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      margin-bottom: 1.4rem;
+    }
+    .logo-row .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--spotify);
+      box-shadow: 0 0 12px 2px rgba(29, 185, 84, 0.6);
+    }
+    .logo-row span.wordmark {
+      font-size: 0.85rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .nav-link {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      text-decoration: none;
+    }
+    .nav-link:hover { color: var(--text); }
+
+    h1 {
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      line-height: 1.15;
+      margin: 0 0 1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    h1 .accent-sp { color: var(--spotify); }
+
+    .intro {
+      color: var(--text-dim);
+      font-size: 1.02rem;
+      line-height: 1.6;
+      max-width: 520px;
+      margin: 0 auto 0.5rem;
+    }
+
+    main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 1.5rem 1.5rem 4rem;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: 0 20px 50px -25px rgba(0, 0, 0, 0.6);
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+      font-weight: 600;
+    }
+
+    .field { margin-bottom: 1.1rem; }
+
+    textarea, input[type=text], input[type=password] {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-panel-2);
+      color: var(--text);
+      font-family: inherit;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 160px;
+      line-height: 1.5;
+    }
+    textarea::placeholder, input::placeholder { color: var(--text-faint); }
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: var(--spotify);
+    }
+
+    button {
+      width: 100%;
+      padding: 0.85rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background: var(--spotify);
+      color: #0d0d10;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    button:hover { background: #1ed760; }
+
+    .hint {
+      margin: 0.9rem 0 0;
+      font-size: 0.85rem;
+      color: var(--text-faint);
+    }
+
+    .error {
+      background: rgba(168, 50, 50, 0.15);
+      border: 1px solid rgba(168, 50, 50, 0.4);
+      color: #ff8080;
+      padding: 0.9rem 1.1rem;
+      border-radius: 10px;
+      margin-bottom: 1.5rem;
+      font-size: 0.92rem;
+    }
+
+    .success {
+      background: rgba(29, 185, 84, 0.12);
+      border: 1px solid rgba(29, 185, 84, 0.35);
+      color: var(--text);
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .success strong { color: var(--spotify); }
+
+    .connect {
+      text-align: center;
+      padding: 1rem 0;
+    }
+    .connect a {
+      display: inline-block;
+      padding: 0.85rem 1.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background: var(--spotify);
+      color: #0d0d10;
+      border-radius: 10px;
+      text-decoration: none;
+    }
+    .connect a:hover { background: #1ed760; }
+    .connect p { color: var(--text-dim); font-size: 0.9rem; margin-top: 1rem; }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1.5rem 3rem;
+      color: var(--text-faint);
+      font-size: 0.82rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo-row">
+      <span class="dot"></span>
+      <span class="wordmark">Setlist</span>
+      <span>·</span>
+      <a href="/" class="nav-link">← Identify tracks</a>
+    </div>
+    <h1>Add to <span class="accent-sp">Spotify</span> playlist</h1>
+    <p class="intro">
+      Paste Spotify track links (one per line) and they'll all go into one playlist.
+      Meant as the next step after using the identify page: confirm the right track via
+      its "Search Spotify" link, then paste the real track link here.
+    </p>
+  </header>
+
+  <main>
+    <div class="panel">
+      {% if not authenticated %}
+        <div class="connect">
+          <a href="/spotify/login">Connect Spotify</a>
+          <p>You'll be asked to log in and approve access, then sent back here.</p>
+        </div>
+      {% else %}
+        {% if error %}
+          <div class="error">{{ error }}</div>
+        {% endif %}
+
+        {% if added is defined %}
+          <div class="success">
+            Added <strong>{{ added }}</strong> track{{ 's' if added != 1 else '' }} to
+            <strong>{{ playlist_name }}</strong>{% if skipped %} ({{ skipped }} already in the playlist, skipped){% endif %}.
+          </div>
+        {% else %}
+          <form method="post">
+            <div class="field">
+              <label for="links">Spotify track links</label>
+              <textarea
+                id="links"
+                name="links"
+                placeholder="https://open.spotify.com/track/...&#10;https://open.spotify.com/track/...&#10;..."
+                required
+              ></textarea>
+            </div>
+            <div class="field">
+              <label for="playlist_name">Playlist name</label>
+              <input type="text" id="playlist_name" name="playlist_name" value="SoundCloud Import">
+            </div>
+            {% if secret_required %}
+              <div class="field">
+                <label for="access_code">Access code</label>
+                <input type="password" id="access_code" name="access_code" required>
+              </div>
+            {% endif %}
+            <button type="submit">Add to playlist</button>
+          </form>
+          <p class="hint">Creates the playlist if it doesn't exist yet, and skips any links already in it.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </main>
+
+  <footer>Setlist</footer>
+</body>
+</html>

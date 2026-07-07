@@ -18,15 +18,26 @@ class SearchCandidate:
     duration_ms: int
 
 
-def build_client(client_id: str, client_secret: str, redirect_uri: str) -> spotipy.Spotify:
-    auth_manager = SpotifyOAuth(
+def get_oauth(
+    client_id: str, client_secret: str, redirect_uri: str, cache_path: str = ".spotify_token_cache"
+) -> SpotifyOAuth:
+    """Raw OAuth manager, for callers that need to drive the auth code exchange
+    themselves (a deployed web app can't use spotipy's local-browser/localhost-
+    server convenience flow — that only works for a script running on the same
+    machine as the browser). CLI usage still goes through this same cache file,
+    so authenticating once from either surface covers both.
+    """
+    return SpotifyOAuth(
         client_id=client_id,
         client_secret=client_secret,
         redirect_uri=redirect_uri,
         scope=SCOPE,
-        cache_path=".spotify_token_cache",
+        cache_path=cache_path,
     )
-    return spotipy.Spotify(auth_manager=auth_manager)
+
+
+def build_client(client_id: str, client_secret: str, redirect_uri: str) -> spotipy.Spotify:
+    return spotipy.Spotify(auth_manager=get_oauth(client_id, client_secret, redirect_uri))
 
 
 def get_or_create_playlist(
