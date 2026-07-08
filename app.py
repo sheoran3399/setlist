@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import secrets
@@ -12,7 +13,14 @@ import claude_tagger
 from config import load_config
 from identify import identify_track
 from soundcloud_source import list_playlist_tracks
-from spotify_client import add_tracks, get_existing_track_uris, get_oauth, get_or_create_playlist
+from spotify_client import (
+    add_tracks,
+    get_existing_track_uris,
+    get_oauth,
+    get_or_create_playlist,
+    pick_best_match,
+    search_candidates,
+)
 
 app = Flask(__name__)
 # Needed to sign the session cookie that gates /spotify/login and /callback
@@ -147,8 +155,9 @@ def index():
     except Exception as exc:  # noqa: BLE001 - surface any failure to the page
         return render_template("index.html", error=str(exc), soundcloud_url=soundcloud_url)
 
+    matched_tracks = [{"artist": r["artist"], "title": r["title"]} for r in results if r["matched"]]
     return render_template(
-        "index.html", results=results, soundcloud_url=soundcloud_url
+        "index.html", results=results, soundcloud_url=soundcloud_url, matched_tracks=matched_tracks
     )
 
 
@@ -200,6 +209,83 @@ def playlist():
         authenticated=True,
         added=len(new_uris),
         skipped=len(uris) - len(new_uris),
+        playlist_name=playlist_name,
+    )
+
+
+@app.route("/add-all", methods=["POST"])
+def add_all():
+    """Resolve every identified (artist, title) from the identify page to a
+    real Spotify track via search, and add them all to one playlist -- the
+    same access-code + Spotify-login gate as /playlist, since this writes to
+    Spotify too. tracks_json rides along as a hidden field so it survives the
+    access-code retry step without the visitor re-running identification.
+    """
+    tracks_json = request.form.get("tracks", "[]")
+    try:
+        pending = json.loads(tracks_json)
+    except ValueError:
+        pending = []
+    playlist_name = request.form.get("playlist_name", "").strip() or "SoundCloud Import"
+
+    if not _is_authorized():
+        if request.form.get("access_code") == PLAYLIST_ADD_SECRET:
+            session["playlist_authorized"] = True
+        else:
+            error = "Wrong access code." if request.form.get("access_code") else None
+            return render_template(
+                "add_all.html",
+                needs_code=True,
+                authenticated=False,
+                error=error,
+                tracks_json=tracks_json,
+                playlist_name=playlist_name,
+            )
+
+    oauth = _get_oauth()
+    token_info = oauth.validate_token(oauth.cache_handler.get_cached_token())
+    if not token_info:
+        return render_template(
+            "add_all.html", authenticated=False, tracks_json=tracks_json, playlist_name=playlist_name
+        )
+
+    if not pending:
+        return render_template("add_all.html", authenticated=True, error="No tracks to add.")
+
+    try:
+        sp = spotipy.Spotify(auth_manager=oauth)
+        playlist_id = get_or_create_playlist(
+            sp, playlist_name, public=False, description="Added via Setlist"
+        )
+        existing_uris = get_existing_track_uris(sp, playlist_id)
+
+        resolved_uris: list[str] = []
+        unresolved: list[str] = []
+        for item in pending:
+            artist, title = item.get("artist"), item.get("title")
+            if not title:
+                continue
+            candidates = search_candidates(sp, artist or "", title)
+            uri = pick_best_match(candidates, title, artist or "")
+            if uri:
+                resolved_uris.append(uri)
+            else:
+                unresolved.append(f"{artist} — {title}" if artist else title)
+
+        new_uris = [u for u in dict.fromkeys(resolved_uris) if u not in existing_uris]
+        if new_uris:
+            add_tracks(sp, playlist_id, new_uris)
+    except Exception:
+        app.logger.exception("add-all failed")
+        return render_template(
+            "add_all.html", authenticated=True, error="Could not add tracks to Spotify. Please try again."
+        )
+
+    return render_template(
+        "add_all.html",
+        authenticated=True,
+        added=len(new_uris),
+        not_found=unresolved,
         playlist_name=playlist_name,
     )
 

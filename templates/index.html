@@ -178,6 +178,34 @@
     }
     .results-count strong { color: var(--spotify); }
 
+    .add-all-form {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 1.25rem;
+    }
+    .add-all-form input[type=text] {
+      flex: 0 0 180px;
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-panel-2);
+      color: var(--text);
+    }
+    .add-all-form input[type=text]:focus { outline: none; border-color: var(--spotify); }
+    .add-all-form button {
+      flex: 1;
+      padding: 0.85rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      background: var(--spotify);
+      color: #0d0d10;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .add-all-form button:hover { background: #1ed760; }
+
     ol.track-list {
       list-style: none;
       margin: 0;
@@ -336,6 +364,22 @@
               </li>
             {% endfor %}
           </ol>
+          {% if matched_tracks %}
+            <form method="post" action="/add-all" class="add-all-form">
+              <input type="hidden" name="tracks" value='{{ matched_tracks | tojson }}'>
+              <input
+                type="text"
+                name="playlist_name"
+                value="SoundCloud Import"
+                placeholder="Playlist name"
+              >
+              <button type="submit">Add all {{ matched_tracks|length }} to Spotify playlist</button>
+            </form>
+            <p class="hint">
+              Resolves each track via a live Spotify search — less precise than the search links
+              above, but no manual copy-pasting.
+            </p>
+          {% endif %}
         </div>
       {% endif %}
     </div>
